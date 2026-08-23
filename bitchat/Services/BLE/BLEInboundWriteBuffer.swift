@@ -41,6 +41,14 @@ struct BLEInboundWriteBuffer {
         for chunk in chunks where !chunk.data.isEmpty {
             offsets.append(chunk.offset)
 
+            // `.withoutResponse` writes always land at offset 0, so an
+            // offset-0 chunk arriving on a non-empty buffer is a fresh frame
+            // replacing stale partial bytes, not an overlap.
+            if chunk.offset == 0, !combined.isEmpty {
+                combined.removeAll()
+                lastEnd = 0
+            }
+
             // Reject malformed writes before touching the buffer: a negative
             // offset traps `Data.replaceSubrange`, and non-monotonic or
             // overlapping offsets corrupt previously written bytes.
